@@ -28,7 +28,6 @@ fn main() {
     println!("Устройство 1: {:?}", living_room.get_device(1));
     println!("Устройство 2: {:?}", living_room.get_device(2));
 
-    // --- Мутация через get_device_mut ---
     // Включаем/выключаем розетку и меняем температуру термометра.
     if let SmartDevice::Thermometer(t) = living_room.get_device_mut(0) {
         t.set_temperature(21);
