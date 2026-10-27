@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["functions","home","room","smart_devices_mod","socket","thermometer"]};
