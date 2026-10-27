@@ -25,7 +25,6 @@ fn main() {
     println!("{:?}", living_room.get_device_mut(1));
     println!("{:?}", living_room.get_device_mut(2));
 
-
     let my_house = SmartHouse::new("Дача".to_string(), vec![living_room]);
 
     my_house.print_report();
