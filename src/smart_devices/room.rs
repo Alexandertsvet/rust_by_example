@@ -1,16 +1,90 @@
 use super::functions::ReportDevice;
 use super::smart_devices_mod::SmartDevice;
 
+/// Комната умного дома — именованная коллекция устройств.
+///
+/// Содержит имя комнаты и вектор [`SmartDevice`]. Устройства можно
+/// получать по индексу (включая мутабельный доступ) и печатать
+/// общий отчёт по всем устройствам через [`print_report`](Room::print_report).
+///
+/// Комнаты вкладываются в [`SmartHouse`](super::home::SmartHouse),
+/// который агрегирует отчёты по всем комнатам.
+///
+/// # Examples
+///
+/// ```
+/// use smart_home::smart_devices::room::Room;
+/// use smart_home::smart_devices::smart_devices_mod::SmartDevice;
+/// use smart_home::smart_devices::thermometer::SmartTermometr;
+/// use smart_home::smart_devices::socket::SmartSocet;
+///
+/// let room = Room::new(
+///     "Гостиная".to_string(),
+///     vec![
+///         SmartDevice::Thermometer(SmartTermometr::new("Термометр".to_string(), 22)),
+///         SmartDevice::Socket(SmartSocet::new("Розетка".to_string(), true, 500)),
+///     ],
+/// );
+///
+/// assert_eq!(room.name, "Гостиная");
+/// assert_eq!(room.devices.len(), 2);
+/// ```
 pub struct Room {
+    /// Имя комнаты (например, «Гостиная» или «Кухня»).
     pub name: String,
+    /// Устройства в комнате. Порядок сохраняется.
     pub devices: Vec<SmartDevice>,
 }
 
 impl Room {
+    /// Создаёт новую комнату с заданным именем и списком устройств.
+    ///
+    /// # Аргументы
+    ///
+    /// * `name` — имя комнаты.
+    /// * `devices` — вектор устройств (может быть пустым).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use smart_home::smart_devices::room::Room;
+    ///
+    /// let empty = Room::new("Кладовая".to_string(), vec![]);
+    /// assert!(empty.devices.is_empty());
+    /// ```
     pub fn new(name: String, devices: Vec<SmartDevice>) -> Self {
         Self { name, devices }
     }
 
+    /// Возвращает ссылку на устройство по индексу.
+    ///
+    /// # Panics
+    ///
+    /// Паникует, если `index >= self.devices.len()`. Сообщение содержит
+    /// индекс и имя комнаты, например:
+    /// `"Индекс устройства 5 выходит за пределы комнаты Гостиная!"`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use smart_home::smart_devices::room::Room;
+    /// use smart_home::smart_devices::smart_devices_mod::SmartDevice;
+    /// use smart_home::smart_devices::thermometer::SmartTermometr;
+    /// use smart_home::smart_devices::functions::ReportDevice;
+    ///
+    /// let room = Room::new(
+    ///     "Кухня".to_string(),
+    ///     vec![SmartDevice::Thermometer(SmartTermometr::new("Т".to_string(), 20))],
+    /// );
+    /// assert_eq!(room.get_device(0).name(), "Т");
+    /// ```
+    ///
+    /// ```should_panic
+    /// use smart_home::smart_devices::room::Room;
+    ///
+    /// let room = Room::new("Пустая".to_string(), vec![]);
+    /// room.get_device(0); // паника: индекс вне границ
+    /// ```
     pub fn get_device(&self, index: usize) -> &SmartDevice {
         if index >= self.devices.len() {
             panic!(
@@ -21,6 +95,40 @@ impl Room {
         &self.devices[index]
     }
 
+    /// Возвращает мутабельную ссылку на устройство по индексу.
+    ///
+    /// Позволяет изменять состояние устройства на месте — например,
+    /// включить розетку или изменить температуру термометра.
+    ///
+    /// # Panics
+    ///
+    /// Паникует, если `index >= self.devices.len()`. Сообщение содержит
+    /// индекс и имя комнаты, как у [`get_device`](Room::get_device).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use smart_home::smart_devices::room::Room;
+    /// use smart_home::smart_devices::smart_devices_mod::SmartDevice;
+    /// use smart_home::smart_devices::socket::SmartSocet;
+    ///
+    /// let mut room = Room::new(
+    ///     "Офис".to_string(),
+    ///     vec![SmartDevice::Socket(SmartSocet::new("Р".to_string(), false, 100))],
+    /// );
+    ///
+    /// if let SmartDevice::Socket(s) = room.get_device_mut(0) {
+    ///     s.turn_on();
+    ///     s.set_power(750);
+    /// }
+    /// ```
+    ///
+    /// ```should_panic
+    /// use smart_home::smart_devices::room::Room;
+    ///
+    /// let mut room = Room::new("Пустая".to_string(), vec![]);
+    /// room.get_device_mut(0); // паника: индекс вне границ
+    /// ```
     pub fn get_device_mut(&mut self, index: usize) -> &mut SmartDevice {
         if index >= self.devices.len() {
             panic!(
@@ -31,6 +139,36 @@ impl Room {
         &mut self.devices[index]
     }
 
+    /// Печатает отчёт по комнате: имя и статус каждого устройства.
+    ///
+    /// Формат:
+    /// ```text
+    /// Комната: <имя>
+    /// <статус устройства 1>
+    ///
+    /// <статус устройства 2>
+    ///
+    /// ```
+    /// Статус каждого устройства печатается его собственным
+    /// [`print_status`](ReportDevice::print_status), поэтому формат
+    /// зависит от типа устройства (термометр или розетка).
+    /// Для пустой комнаты печатается только заголовок.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use smart_home::smart_devices::room::Room;
+    /// use smart_home::smart_devices::smart_devices_mod::SmartDevice;
+    /// use smart_home::smart_devices::thermometer::SmartTermometr;
+    ///
+    /// let room = Room::new(
+    ///     "Спальня".to_string(),
+    ///     vec![SmartDevice::Thermometer(SmartTermometr::new("Т".to_string(), 18))],
+    /// );
+    /// room.print_report();
+    /// // Комната: Спальня
+    /// // Термометр Т: Текущая температура: 18°C
+    /// ```
     pub fn print_report(&self) {
         println!("Комната: {}", self.name);
         for device in &self.devices {
